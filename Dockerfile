@@ -3,7 +3,7 @@ FROM node:20-alpine AS client-builder
 
 WORKDIR /build/client
 COPY client/package*.json ./
-RUN npm ci
+RUN npm install --legacy-peer-deps
 COPY client/ ./
 RUN npm run build
 
@@ -13,7 +13,7 @@ FROM node:20-alpine AS server-builder
 RUN apk add --no-cache python3 make g++
 WORKDIR /build/server
 COPY server/package*.json ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 # ─── Stage 3: Final image ─────────────────────────────────────────────────────
 FROM node:20-alpine

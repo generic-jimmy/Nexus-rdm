@@ -1,7 +1,7 @@
 # NexusRDM
 
 Self-hosted Remote Device Management — web panel + Windows agent.  
-One Docker container. Deploy anywhere. No platform lock-in.
+**SQLite database** — zero external dependencies. One container, one file, works everywhere.
 
 ---
 
@@ -12,15 +12,16 @@ One Docker container. Deploy anywhere. No platform lock-in.
   └── One Docker container
         ├── Express API      →  /api/*
         ├── WebSocket hub    →  /ws
-        └── React panel      →  /* (static, same-origin)
+        ├── React panel      →  /* (static, same-origin)
+        └── SQLite DB        →  /data/nexusrdm.db (persistent volume)
 
 [ Windows devices ]
   └── nexus-agent-<name>.exe
         └── HTTPS heartbeat every N seconds  →  server
 ```
 
-TLS is terminated by the platform proxy (Railway, Render, Fly.io, DigitalOcean App Platform).  
-Your container runs plain HTTP internally. The agent always connects via `https://`.
+No external database. No connection strings. No managed services.  
+TLS is handled by the platform proxy — your container runs plain HTTP internally.
 
 ---
 
@@ -29,10 +30,8 @@ Your container runs plain HTTP internally. The agent always connects via `https:
 ```bash
 git clone https://github.com/you/nexus-rdm
 cd nexus-rdm
-
 cp .env.example .env
-# Edit .env — fill in the three secrets (see below)
-
+# Edit .env — fill in the 3 secrets (see below)
 docker compose up -d
 # Panel: http://localhost:4000
 ```
@@ -41,34 +40,33 @@ docker compose up -d
 
 ## Deploy to any platform
 
-The project is a single `Dockerfile`. Point any container platform at it.
-
-### Railway
-1. New project → Deploy from GitHub → select this repo
-2. Add a Postgres database plugin
-3. Set env vars (copy from `.env.example`, fill secrets)
-4. Deploy → get your URL
+Single `Dockerfile`. Point any container platform at it and set 3 env vars.
 
 ### Render
-1. New Web Service → connect repo → Runtime: Docker
-2. Add a Postgres database
-3. Set env vars
-4. Deploy → get your URL
+1. New → Web Service → connect repo → Runtime: **Docker**
+2. Set environment variables (see below)
+3. Add a **Disk** → Mount Path: `/data` → Size: 1 GB (free tier)
+4. Deploy → done
+
+### Railway
+1. New Project → Deploy from GitHub
+2. Set environment variables
+3. Add a **Volume** → Mount Path: `/data`
+4. Deploy → done
 
 ### Fly.io
 ```bash
-fly launch     # detects Dockerfile
-fly postgres create --name nexusrdm-db
+fly launch
+fly volumes create nexus_data --size 1
+# Edit fly.toml: add [mounts] source="nexus_data" destination="/data"
 fly secrets set JWT_SECRET=... JWT_REFRESH_SECRET=... ENCRYPTION_KEY=...
 fly deploy
 ```
 
 ### DigitalOcean / any VPS
 ```bash
-# On the server:
 git clone https://github.com/you/nexus-rdm
-cd nexus-rdm
-cp .env.example .env && nano .env
+cd nexus-rdm && cp .env.example .env && nano .env
 docker compose up -d
 ```
 
@@ -76,15 +74,31 @@ docker compose up -d
 
 ## Environment Variables
 
-| Variable              | Description                              | How to generate           |
-|-----------------------|------------------------------------------|---------------------------|
-| `DATABASE_URL`        | Full Postgres connection string          | Platform provides this    |
-| `POSTGRES_PASSWORD`   | DB password (local dev only)             | Any strong password       |
-| `JWT_SECRET`          | Access token signing secret              | `openssl rand -hex 64`    |
-| `JWT_REFRESH_SECRET`  | Refresh token signing secret             | `openssl rand -hex 64`    |
-| `ENCRYPTION_KEY`      | AES-256 key for TOTP secrets at rest     | `openssl rand -hex 32`    |
-| `NODE_ENV`            | `production`                             | Set to `production`       |
-| `PORT`                | Server port (default: 4000)              | Usually set by platform   |
+Only **3 secrets** to generate. Everything else has safe defaults.
+
+| Variable             | Description                          | How to generate         |
+|----------------------|--------------------------------------|-------------------------|
+| `JWT_SECRET`         | Access token signing key             | `openssl rand -hex 64`  |
+| `JWT_REFRESH_SECRET` | Refresh token signing key            | `openssl rand -hex 64`  |
+| `ENCRYPTION_KEY`     | AES-256 key for 2FA secrets at rest  | `openssl rand -hex 32`  |
+| `DB_DIR`             | SQLite file directory (default /data)| Usually leave as `/data`|
+| `NODE_ENV`           | Set to `production`                  | —                       |
+| `PORT`               | Server port (default 4000)           | Usually set by platform |
+
+---
+
+## Persistent Storage
+
+The SQLite database file lives at `/data/nexusrdm.db`.  
+**You must mount a persistent volume at `/data`** — otherwise data resets on redeploy.
+
+| Platform     | How to add persistent storage               |
+|--------------|---------------------------------------------|
+| Render       | Service → Disks → Mount at `/data`          |
+| Railway      | Service → Volumes → Mount at `/data`        |
+| Fly.io       | `fly volumes create` + `[mounts]` in fly.toml |
+| Docker local | Volume is in `docker-compose.yml` already   |
+| VPS          | Volume is in `docker-compose.yml` already   |
 
 ---
 
@@ -92,64 +106,53 @@ docker compose up -d
 
 1. Open the panel at your URL
 2. Click **"First run? Create admin account"**
-3. Fill in name, email, and password (min 12 chars)
-4. Sign in
-5. Go to **Settings → Security → Enable 2FA** (recommended)
+3. Enter name, email, password (min 12 chars)
+4. Sign in → enable 2FA in settings (recommended)
 
-Registration is disabled after the first account is created.
+Registration is permanently disabled after the first account is created.
 
 ---
 
 ## Building the Windows Agent
 
-The agent is compiled locally on your machine — not on the server.  
-Each `.exe` is unique: server URL, device key, name, interval, and flags are baked in.
+Each `.exe` is unique — server URL, device key, name, interval, and flags baked in.
 
-### Prerequisites (on your build machine)
-- Python 3.8+ in PATH
-- Internet access (pip downloads PyInstaller)
+**On your local Windows machine:**
 
-### Steps
-
-1. In the panel: **Devices → Register Device** → copy the API key (shown once)
-2. On your build machine:
 ```
 cd agent
 build.bat
 ```
-3. Follow the prompts:
 
+Follow the 6 prompts:
 ```
-[1/6] SERVER URL      → https://your-app.up.railway.app
-[2/6] DEVICE API KEY  → nrdm_xxxxxxxxxxxx  (input hidden)
-[3/6] DEVICE NAME     → johns-laptop
-[4/6] INTERVAL        → 30  (seconds, 10-300)
-[5/6] PRIVILEGES      → y   (run as admin)
-[6/6] WINDOW MODE     → y   (silent background)
+[1/6] Server URL     → https://your-app.onrender.com
+[2/6] Device API key → nrdm_xxxx  (get from panel → Register Device)
+[3/6] Device name    → office-pc-01
+[4/6] Interval       → 30  (seconds)
+[5/6] Admin          → y
+[6/6] Silent         → y
 ```
 
-4. Output: `agent/dist/nexus-agent-johns-laptop.exe`
-5. Copy the `.exe` to the target Windows machine and run it
-6. The device appears online in the panel within one interval
+Output: `agent/dist/nexus-agent-office-pc-01.exe`  
+Copy to target machine and run. Device appears online within one interval.
 
 ---
 
-## Security Model
+## Security
 
-| Layer                  | Implementation                                         |
-|------------------------|--------------------------------------------------------|
-| Password hashing       | Argon2id — 64 MB memory, 3 iterations, 4 parallelism  |
-| Access tokens          | JWT HS256, 15-minute expiry                            |
-| Refresh tokens         | Rotated on every use, stored as SHA-256 hash           |
-| 2FA                    | TOTP RFC 6238, ±30s window, Google Authenticator       |
-| TOTP secrets at rest   | AES-256-GCM encrypted in database                     |
-| Device API keys        | SHA-256 hashed, raw key shown once, never stored       |
-| Brute force            | Account lock after 5 failures (30 min cooldown)        |
-| Rate limiting          | Login: 10/15min · TOTP: 5/5min · API: 120/min         |
-| Audit log              | Every action: user, device, IP, timestamp              |
-| TLS                    | Platform proxy (auto cert) → plain HTTP in container   |
-| Headers                | Helmet.js: CSP, HSTS, X-Frame-Options, etc.            |
-| CORS                   | Not needed — same-origin architecture                  |
+| Layer                | Implementation                                        |
+|----------------------|-------------------------------------------------------|
+| Password hashing     | Argon2id — 64 MB memory, 3 iterations                |
+| Access tokens        | JWT HS256, 15-minute expiry                           |
+| Refresh tokens       | Rotated on every use, stored as SHA-256 hash          |
+| 2FA                  | TOTP RFC 6238, Google Authenticator compatible        |
+| 2FA secrets at rest  | AES-256-GCM encrypted in SQLite                      |
+| Device API keys      | SHA-256 hashed, raw key shown once only               |
+| Brute force          | Account lock after 5 failures (30 min)                |
+| Rate limiting        | Login: 10/15min · TOTP: 5/5min · API: 120/min        |
+| Audit log            | Every action logged with user, IP, timestamp          |
+| TLS                  | Platform proxy → plain HTTP inside container          |
 
 ---
 
@@ -157,48 +160,30 @@ build.bat
 
 ```
 nexus-rdm/
-├── Dockerfile                   ← multi-stage: builds React → serves from Express
-├── docker-compose.yml           ← local dev only
-├── .env.example                 ← all variables documented
+├── Dockerfile                   ← multi-stage build
+├── docker-compose.yml           ← local dev (no external DB needed)
+├── .env.example
 │
-├── docker/
-│   └── init.sql                 ← full Postgres schema
+├── server/src/
+│   ├── index.js                 ← Express + WebSocket
+│   ├── config/db.js             ← SQLite init + schema (runs on startup)
+│   ├── utils/auth.js            ← Argon2, JWT, TOTP, AES-GCM
+│   ├── middleware/
+│   │   ├── auth.js
+│   │   ├── rateLimiter.js
+│   │   └── audit.js
+│   └── routes/
+│       ├── auth.js
+│       └── devices.js
 │
-├── server/                      ← Express backend
-│   └── src/
-│       ├── index.js             ← API + static + WebSocket
-│       ├── config/db.js
-│       ├── utils/auth.js        ← Argon2, JWT, TOTP, AES-GCM
-│       ├── middleware/
-│       │   ├── auth.js          ← JWT guard, RBAC, device key auth
-│       │   ├── rateLimiter.js
-│       │   └── audit.js
-│       └── routes/
-│           ├── auth.js          ← login, register, 2FA, refresh, logout
-│           └── devices.js       ← CRUD, heartbeat, stats
-│
-├── client/                      ← React panel
-│   └── src/
-│       ├── pages/
-│       │   ├── Login.jsx        ← creds + 2FA + first-run register
-│       │   └── Dashboard.jsx    ← device grid, stats, add device modal
-│       ├── store/auth.js        ← Zustand persisted auth state
-│       └── utils/api.js         ← Axios + silent token refresh
+├── client/src/
+│   ├── pages/Login.jsx
+│   ├── pages/Dashboard.jsx
+│   ├── store/auth.js
+│   └── utils/api.js
 │
 └── agent/
-    ├── agent.py                 ← Windows agent template
-    ├── build.bat                ← interactive builder → .exe
+    ├── agent.py
+    ├── build.bat
     └── requirements.txt
 ```
-
----
-
-## Roadmap
-
-- [ ] Web terminal (xterm.js + WebSocket PTY relay)
-- [ ] Real-time metrics charts (CPU, RAM, disk via WebSocket push)
-- [ ] File browser + transfer
-- [ ] Alert rules (offline timeout, high CPU/RAM threshold)
-- [ ] Multi-user management (invite, roles)
-- [ ] Remote command execution with audit trail
-- [ ] Agent auto-update via panel

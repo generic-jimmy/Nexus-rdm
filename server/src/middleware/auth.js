@@ -1,10 +1,10 @@
 "use strict";
-const crypto     = require("crypto");
+const crypto           = require("crypto");
 const { verifyAccess } = require("../utils/auth");
-const { query }        = require("../config/db");
+const db               = require("../config/db");
 
 // ─── JWT access token guard ───────────────────────────────────────────────────
-const authenticate = async (req, res, next) => {
+const authenticate = (req, res, next) => {
   try {
     const header = req.headers.authorization ?? "";
     if (!header.startsWith("Bearer "))
@@ -12,13 +12,13 @@ const authenticate = async (req, res, next) => {
 
     const payload = verifyAccess(header.slice(7));
 
-    const { rows } = await query(
-      "SELECT id, email, name, role, totp_enabled FROM users WHERE id = $1",
-      [payload.sub]
-    );
-    if (!rows.length) return res.status(401).json({ error: "User not found" });
+    const user = db.prepare(
+      "SELECT id, email, name, role, totp_enabled FROM users WHERE id = ?"
+    ).get(payload.sub);
 
-    req.user = rows[0];
+    if (!user) return res.status(401).json({ error: "User not found" });
+
+    req.user = user;
     next();
   } catch (err) {
     if (err.name === "TokenExpiredError")
@@ -35,22 +35,22 @@ const requireRole = (...roles) => (req, res, next) => {
   next();
 };
 
-// ─── Device API key guard (used by Windows agent) ─────────────────────────────
-const authenticateDevice = async (req, res, next) => {
+// ─── Device API key guard ─────────────────────────────────────────────────────
+const authenticateDevice = (req, res, next) => {
   try {
     const key = req.headers["x-device-key"] ?? "";
     if (!key) return res.status(401).json({ error: "No device key" });
 
     const keyHash = crypto.createHash("sha256").update(key).digest("hex");
-    const { rows } = await query(
-      "SELECT id, name, owner_id, heartbeat_interval FROM devices WHERE api_key_hash = $1",
-      [keyHash]
-    );
-    if (!rows.length) return res.status(401).json({ error: "Invalid device key" });
+    const device  = db.prepare(
+      "SELECT id, name, owner_id, heartbeat_interval FROM devices WHERE api_key_hash = ?"
+    ).get(keyHash);
 
-    req.device = rows[0];
+    if (!device) return res.status(401).json({ error: "Invalid device key" });
+
+    req.device = device;
     next();
-  } catch {
+  } catch (err) {
     return res.status(500).json({ error: "Auth error" });
   }
 };

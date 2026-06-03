@@ -3,7 +3,6 @@ const crypto           = require("crypto");
 const { verifyAccess } = require("../utils/auth");
 const db               = require("../config/db");
 
-// ─── JWT access token guard ───────────────────────────────────────────────────
 const authenticate = (req, res, next) => {
   try {
     const header = req.headers.authorization ?? "";
@@ -11,14 +10,13 @@ const authenticate = (req, res, next) => {
       return res.status(401).json({ error: "No token provided" });
 
     const payload = verifyAccess(header.slice(7));
-
-    const user = db.prepare(
+    const user    = db.prepare(
       "SELECT id, email, name, role, totp_enabled FROM users WHERE id = ?"
     ).get(payload.sub);
 
     if (!user) return res.status(401).json({ error: "User not found" });
 
-    req.user = user;
+    req.user = { ...user, totp_enabled: !!user.totp_enabled };
     next();
   } catch (err) {
     if (err.name === "TokenExpiredError")
@@ -27,7 +25,6 @@ const authenticate = (req, res, next) => {
   }
 };
 
-// ─── Role-based access control ────────────────────────────────────────────────
 const requireRole = (...roles) => (req, res, next) => {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   if (!roles.includes(req.user.role))
@@ -35,7 +32,6 @@ const requireRole = (...roles) => (req, res, next) => {
   next();
 };
 
-// ─── Device API key guard ─────────────────────────────────────────────────────
 const authenticateDevice = (req, res, next) => {
   try {
     const key = req.headers["x-device-key"] ?? "";
@@ -47,10 +43,10 @@ const authenticateDevice = (req, res, next) => {
     ).get(keyHash);
 
     if (!device) return res.status(401).json({ error: "Invalid device key" });
-
     req.device = device;
     next();
   } catch (err) {
+    console.error("[auth/device]", err.message);
     return res.status(500).json({ error: "Auth error" });
   }
 };

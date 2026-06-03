@@ -1,189 +1,120 @@
 # NexusRDM
 
-Self-hosted Remote Device Management — web panel + Windows agent.  
-**SQLite database** — zero external dependencies. One container, one file, works everywhere.
+Self-hosted Remote Device Management. One Docker container, zero external services.
+Uses Turso (free hosted SQLite) -- your data persists forever across restarts and redeploys automatically.
 
 ---
 
-## Architecture
+## How it works
 
-```
-[ Any hosting platform ]
-  └── One Docker container
-        ├── Express API      →  /api/*
-        ├── WebSocket hub    →  /ws
-        ├── React panel      →  /* (static, same-origin)
-        └── SQLite DB        →  /data/nexusrdm.db (persistent volume)
-
-[ Windows devices ]
-  └── nexus-agent-<name>.exe
-        └── HTTPS heartbeat every N seconds  →  server
-```
-
-No external database. No connection strings. No managed services.  
-TLS is handled by the platform proxy — your container runs plain HTTP internally.
+- Turso is free hosted SQLite. Sign up takes 2 minutes.
+- Set 2 env vars (TURSO_URL + TURSO_TOKEN) in your hosting platform.
+- Deploy the Dockerfile anywhere. Data survives restarts, redeploys, everything.
+- No volumes to attach. No disk to configure. No Postgres to manage.
 
 ---
 
-## Quick Start — Local
+## Setup: Turso database (2 minutes, free)
 
-```bash
-git clone https://github.com/you/nexus-rdm
-cd nexus-rdm
-cp .env.example .env
-# Edit .env — fill in the 3 secrets (see below)
-docker compose up -d
-# Panel: http://localhost:4000
-```
+Option A -- Turso web dashboard (no CLI):
+  1. Go to https://app.turso.tech and sign up (free)
+  2. Create a new database, name it: nexusrdm
+  3. Copy the Database URL  (looks like: libsql://nexusrdm-yourname.turso.io)
+  4. Go to Tokens tab, create a token, copy it
 
----
-
-## Deploy to any platform
-
-Single `Dockerfile`. Point any container platform at it and set 3 env vars.
-
-### Render
-1. New → Web Service → connect repo → Runtime: **Docker**
-2. Set environment variables (see below)
-3. Add a **Disk** → Mount Path: `/data` → Size: 1 GB (free tier)
-4. Deploy → done
-
-### Railway
-1. New Project → Deploy from GitHub
-2. Set environment variables
-3. Add a **Volume** → Mount Path: `/data`
-4. Deploy → done
-
-### Fly.io
-```bash
-fly launch
-fly volumes create nexus_data --size 1
-# Edit fly.toml: add [mounts] source="nexus_data" destination="/data"
-fly secrets set JWT_SECRET=... JWT_REFRESH_SECRET=... ENCRYPTION_KEY=...
-fly deploy
-```
-
-### DigitalOcean / any VPS
-```bash
-git clone https://github.com/you/nexus-rdm
-cd nexus-rdm && cp .env.example .env && nano .env
-docker compose up -d
-```
+Option B -- Turso CLI:
+  npm install -g @turso/cli
+  turso auth login
+  turso db create nexusrdm
+  turso db show nexusrdm          (copy the URL)
+  turso db tokens create nexusrdm (copy the token)
 
 ---
 
-## Environment Variables
+## Deploy to Render (recommended)
 
-Only **3 secrets** to generate. Everything else has safe defaults.
+1. New Web Service -- connect your GitHub repo -- Runtime: Docker
+2. Set these environment variables:
+     TURSO_URL             = libsql://nexusrdm-yourname.turso.io
+     TURSO_TOKEN           = your-token
+     JWT_SECRET            = (openssl rand -hex 64)
+     JWT_REFRESH_SECRET    = (openssl rand -hex 64)
+     ENCRYPTION_KEY        = (openssl rand -hex 32)
+     NODE_ENV              = production
+3. Deploy. Done. No disk, no database addon needed.
 
-| Variable             | Description                          | How to generate         |
-|----------------------|--------------------------------------|-------------------------|
-| `JWT_SECRET`         | Access token signing key             | `openssl rand -hex 64`  |
-| `JWT_REFRESH_SECRET` | Refresh token signing key            | `openssl rand -hex 64`  |
-| `ENCRYPTION_KEY`     | AES-256 key for 2FA secrets at rest  | `openssl rand -hex 32`  |
-| `DB_DIR`             | SQLite file directory (default /data)| Usually leave as `/data`|
-| `NODE_ENV`           | Set to `production`                  | —                       |
-| `PORT`               | Server port (default 4000)           | Usually set by platform |
+## Deploy to Railway
+
+Same env vars as above. Add them under Variables. Deploy.
+
+## Deploy to Fly.io
+
+  fly launch
+  fly secrets set TURSO_URL=... TURSO_TOKEN=... JWT_SECRET=... JWT_REFRESH_SECRET=... ENCRYPTION_KEY=...
+  fly deploy
+
+## Local development
+
+  cp .env.example .env
+  # Leave TURSO_URL and TURSO_TOKEN empty -- uses local nexusrdm.db file
+  # Fill in JWT_SECRET, JWT_REFRESH_SECRET, ENCRYPTION_KEY
+  docker compose up -d
+  # Panel: http://localhost:4000
 
 ---
 
-## Persistent Storage
-
-The SQLite database file lives at `/data/nexusrdm.db`.  
-**You must mount a persistent volume at `/data`** — otherwise data resets on redeploy.
-
-| Platform     | How to add persistent storage               |
-|--------------|---------------------------------------------|
-| Render       | Service → Disks → Mount at `/data`          |
-| Railway      | Service → Volumes → Mount at `/data`        |
-| Fly.io       | `fly volumes create` + `[mounts]` in fly.toml |
-| Docker local | Volume is in `docker-compose.yml` already   |
-| VPS          | Volume is in `docker-compose.yml` already   |
-
----
-
-## First-Run Setup
+## First run
 
 1. Open the panel at your URL
-2. Click **"First run? Create admin account"**
+2. Click "First run? Create admin account"
 3. Enter name, email, password (min 12 chars)
-4. Sign in → enable 2FA in settings (recommended)
+4. Sign in
+5. Recommended: enable 2FA in settings
 
-Registration is permanently disabled after the first account is created.
+Registration closes permanently after the first account is created.
 
 ---
 
-## Building the Windows Agent
+## Build the Windows agent
 
-Each `.exe` is unique — server URL, device key, name, interval, and flags baked in.
+Each .exe has the server URL, device key, and settings baked in at compile time.
 
-**On your local Windows machine:**
+Prerequisites on your Windows build machine:
+  - Python 3.8+ (python.org)
+  - Internet access for pip
 
-```
-cd agent
-build.bat
-```
+Steps:
+  1. In the panel: Devices -> Register Device -> copy the API key shown once
+  2. On your Windows machine: cd agent && build.bat
+  3. Answer 6 prompts (URL, key, name, interval, admin, silent)
+  4. Output: agent\dist\nexus-agent-devicename.exe
+  5. Copy .exe to target machine and run it
+  6. Device appears online in panel within one interval
 
-Follow the 6 prompts:
-```
-[1/6] Server URL     → https://your-app.onrender.com
-[2/6] Device API key → nrdm_xxxx  (get from panel → Register Device)
-[3/6] Device name    → office-pc-01
-[4/6] Interval       → 30  (seconds)
-[5/6] Admin          → y
-[6/6] Silent         → y
-```
+---
 
-Output: `agent/dist/nexus-agent-office-pc-01.exe`  
-Copy to target machine and run. Device appears online within one interval.
+## Environment variables
+
+  TURSO_URL             Turso database URL      libsql://name.turso.io
+  TURSO_TOKEN           Turso auth token        from turso db tokens create
+  JWT_SECRET            Access token key        openssl rand -hex 64
+  JWT_REFRESH_SECRET    Refresh token key       openssl rand -hex 64
+  ENCRYPTION_KEY        AES-256 key for 2FA     openssl rand -hex 32
+  NODE_ENV              production
+  PORT                  4000 (platform sets this)
+  TOTP_ISSUER           NexusRDM (optional, cosmetic)
 
 ---
 
 ## Security
 
-| Layer                | Implementation                                        |
-|----------------------|-------------------------------------------------------|
-| Password hashing     | Argon2id — 64 MB memory, 3 iterations                |
-| Access tokens        | JWT HS256, 15-minute expiry                           |
-| Refresh tokens       | Rotated on every use, stored as SHA-256 hash          |
-| 2FA                  | TOTP RFC 6238, Google Authenticator compatible        |
-| 2FA secrets at rest  | AES-256-GCM encrypted in SQLite                      |
-| Device API keys      | SHA-256 hashed, raw key shown once only               |
-| Brute force          | Account lock after 5 failures (30 min)                |
-| Rate limiting        | Login: 10/15min · TOTP: 5/5min · API: 120/min        |
-| Audit log            | Every action logged with user, IP, timestamp          |
-| TLS                  | Platform proxy → plain HTTP inside container          |
-
----
-
-## Project Structure
-
-```
-nexus-rdm/
-├── Dockerfile                   ← multi-stage build
-├── docker-compose.yml           ← local dev (no external DB needed)
-├── .env.example
-│
-├── server/src/
-│   ├── index.js                 ← Express + WebSocket
-│   ├── config/db.js             ← SQLite init + schema (runs on startup)
-│   ├── utils/auth.js            ← Argon2, JWT, TOTP, AES-GCM
-│   ├── middleware/
-│   │   ├── auth.js
-│   │   ├── rateLimiter.js
-│   │   └── audit.js
-│   └── routes/
-│       ├── auth.js
-│       └── devices.js
-│
-├── client/src/
-│   ├── pages/Login.jsx
-│   ├── pages/Dashboard.jsx
-│   ├── store/auth.js
-│   └── utils/api.js
-│
-└── agent/
-    ├── agent.py
-    ├── build.bat
-    └── requirements.txt
-```
+  Passwords       Argon2id, 64MB memory cost
+  Access tokens   JWT HS256, 15 min expiry
+  Refresh tokens  Rotated on every use, stored as SHA-256 hash
+  2FA             TOTP RFC 6238, Google Authenticator compatible
+  2FA secrets     AES-256-GCM encrypted at rest
+  Device keys     SHA-256 hashed, shown once only
+  Brute force     Lockout after 5 failures (30 min)
+  Rate limits     Login 10/15min, TOTP 5/5min, API 120/min
+  Audit log       Every action logged with user, IP, timestamp
+  TLS             Platform proxy handles it, zero config

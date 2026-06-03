@@ -1,9 +1,5 @@
 version: "3.9"
 
-# Local development
-# Run: docker compose up -d
-# Panel: http://localhost:4000
-
 services:
   app:
     build: .
@@ -13,8 +9,14 @@ services:
     ports:
       - "4000:4000"
     volumes:
-      # SQLite database lives here — persists across restarts and rebuilds
-      - nexus_data:/data
+      # SQLite lives here — named volume persists across restarts and redeploys
+      - nexus-data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4000/api/health >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
 volumes:
-  nexus_data:
+  nexus-data:

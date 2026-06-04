@@ -8,15 +8,9 @@ services:
     env_file: .env
     ports:
       - "4000:4000"
-    volumes:
-      # SQLite lives here — named volume persists across restarts and redeploys
-      - nexus-data:/app/data
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:4000/api/health >/dev/null 2>&1 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 20s
-
-volumes:
-  nexus-data:

@@ -13,20 +13,24 @@ WORKDIR /build/server
 COPY server/package*.json ./
 RUN npm install --omit=dev
 
-# ─── Stage 3: Runtime ─────────────────────────────────────────────────────────
+# ─── Stage 3: Runtime ────────────────────────────────────────────────────────
 FROM node:20-alpine
 RUN apk add --no-cache libstdc++
 
 WORKDIR /app
+
 COPY server/src           ./src
 COPY server/package*.json ./
 COPY --from=server-builder /build/server/node_modules ./node_modules
 COPY --from=client-builder /build/client/dist         ./public
 
-# Named volume mount point — data persists across all restarts and redeploys
-RUN mkdir -p /app/data
-RUN addgroup -S nexus && adduser -S nexus -G nexus \
+# Create data dir and set ownership BEFORE switching to non-root user
+# SQLite lives at /app/data/nexusrdm.db — inside /app which we own
+RUN mkdir -p /app/data \
+    && addgroup -S nexus \
+    && adduser -S nexus -G nexus \
     && chown -R nexus:nexus /app
+
 USER nexus
 
 EXPOSE 4000

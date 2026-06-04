@@ -3,9 +3,10 @@ const Database = require("better-sqlite3");
 const path     = require("path");
 const fs       = require("fs");
 
-// /app/data is a named Docker volume — persists across restarts and redeploys
-// Local dev: falls back to ./data next to the project root
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "..", "..", "..", "data");
+// Store the database inside /app/data — already owned by the nexus user,
+// no volume, no disk, no extra config needed on any platform.
+// The directory is created in the Dockerfile so it always exists and is writable.
+const DATA_DIR = path.join(__dirname, "..", "..", "data");
 const DB_PATH  = path.join(DATA_DIR, "nexusrdm.db");
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -21,7 +22,6 @@ db.pragma("foreign_keys = ON");
 db.pragma("busy_timeout = 5000");
 db.pragma("synchronous = NORMAL");
 
-// ─── Schema ───────────────────────────────────────────────────────────────────
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id            TEXT PRIMARY KEY,

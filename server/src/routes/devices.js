@@ -115,47 +115,76 @@ router.delete("/:id", authenticate, requireRole("admin"), (req, res) => {
 
 // ─── POST /api/devices/heartbeat — Windows agent calls this ──────────────────
 router.post("/heartbeat", deviceLimiter, authenticateDevice, (req, res) => {
-  const {
-    os, os_version, hostname, username, ip_address, arch,
-    cpu_model, cpu_cores, ram_total, ram_used,
-    disk_total, disk_used, battery_percent, battery_charging,
-    agent_version, ping_ms, metadata = {},
-  } = req.body;
+  const b = req.body ?? {};
 
-  const existing = db.prepare("SELECT metadata FROM devices WHERE id = ?").get(req.device.id);
-  const merged   = { ...JSON.parse(existing?.metadata || "{}"), ...metadata };
+  // Sanitize every value to types SQLite can bind:
+  // strings, numbers, null only — no booleans, no undefined, no objects
+  const str  = (v) => (v != null && v !== "" ? String(v).slice(0, 512) : null);
+  const int  = (v) => (v != null && !isNaN(Number(v)) ? Math.round(Number(v)) : null);
+  const bool = (v) => (v != null ? (v === true || v === "true" || v === 1 ? 1 : 0) : null);
 
-  db.prepare(`
-    UPDATE devices SET
-      status           = 'online',
-      last_seen        = strftime('%Y-%m-%dT%H:%M:%SZ','now'),
-      updated_at       = strftime('%Y-%m-%dT%H:%M:%SZ','now'),
-      os               = COALESCE(?, os),
-      os_version       = COALESCE(?, os_version),
-      hostname         = COALESCE(?, hostname),
-      username         = COALESCE(?, username),
-      ip_address       = COALESCE(?, ip_address),
-      arch             = COALESCE(?, arch),
-      cpu_model        = COALESCE(?, cpu_model),
-      cpu_cores        = COALESCE(?, cpu_cores),
-      ram_total        = COALESCE(?, ram_total),
-      ram_used         = ?,
-      disk_total       = COALESCE(?, disk_total),
-      disk_used        = ?,
-      battery_percent  = ?,
-      battery_charging = ?,
-      agent_version    = COALESCE(?, agent_version),
-      ping_ms          = COALESCE(?, ping_ms),
-      metadata         = ?
-    WHERE id = ?
-  `).run(
-    os ?? null, os_version ?? null, hostname ?? null, username ?? null,
-    ip_address ?? null, arch ?? null, cpu_model ?? null, cpu_cores ?? null,
-    ram_total ?? null, ram_used ?? null, disk_total ?? null, disk_used ?? null,
-    battery_percent ?? null, battery_charging ?? null,
-    agent_version ?? null, ping_ms ?? null,
-    JSON.stringify(merged), req.device.id
-  );
+  const os              = str(b.os);
+  const os_version      = str(b.os_version);
+  const hostname        = str(b.hostname);
+  const username        = str(b.username);
+  const ip_address      = str(b.ip_address);
+  const arch            = str(b.arch);
+  const cpu_model       = str(b.cpu_model);
+  const agent_version   = str(b.agent_version);
+  const cpu_cores       = int(b.cpu_cores);
+  const ram_total       = int(b.ram_total);
+  const ram_used        = int(b.ram_used);
+  const disk_total      = int(b.disk_total);
+  const disk_used       = int(b.disk_used);
+  const battery_percent = int(b.battery_percent);
+  const ping_ms         = int(b.ping_ms);
+  const battery_charging = bool(b.battery_charging);
+
+  // Safely merge metadata
+  let merged = "{}";
+  try {
+    const existing = db.prepare("SELECT metadata FROM devices WHERE id = ?").get(req.device.id);
+    const prev = JSON.parse(existing?.metadata || "{}");
+    const incoming = (typeof b.metadata === "object" && b.metadata !== null) ? b.metadata : {};
+    merged = JSON.stringify({ ...prev, ...incoming });
+  } catch { merged = "{}"; }
+
+  try {
+    db.prepare(`
+      UPDATE devices SET
+        status           = 'online',
+        last_seen        = strftime('%Y-%m-%dT%H:%M:%SZ','now'),
+        updated_at       = strftime('%Y-%m-%dT%H:%M:%SZ','now'),
+        os               = COALESCE(?, os),
+        os_version       = COALESCE(?, os_version),
+        hostname         = COALESCE(?, hostname),
+        username         = COALESCE(?, username),
+        ip_address       = COALESCE(?, ip_address),
+        arch             = COALESCE(?, arch),
+        cpu_model        = COALESCE(?, cpu_model),
+        cpu_cores        = COALESCE(?, cpu_cores),
+        ram_total        = COALESCE(?, ram_total),
+        ram_used         = COALESCE(?, ram_used),
+        disk_total       = COALESCE(?, disk_total),
+        disk_used        = COALESCE(?, disk_used),
+        battery_percent  = COALESCE(?, battery_percent),
+        battery_charging = COALESCE(?, battery_charging),
+        agent_version    = COALESCE(?, agent_version),
+        ping_ms          = COALESCE(?, ping_ms),
+        metadata         = ?
+      WHERE id = ?
+    `).run(
+      os, os_version, hostname, username,
+      ip_address, arch, cpu_model, cpu_cores,
+      ram_total, ram_used, disk_total, disk_used,
+      battery_percent, battery_charging,
+      agent_version, ping_ms,
+      merged, req.device.id
+    );
+  } catch (err) {
+    console.error("[heartbeat] db error:", err.message);
+    return res.status(500).json({ error: "Heartbeat failed" });
+  }
 
   res.json({ ok: true, interval: req.device.heartbeat_interval });
 });

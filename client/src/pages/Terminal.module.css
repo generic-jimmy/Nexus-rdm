@@ -1,0 +1,218 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #080c10;
+  font-family: var(--font-ui);
+  overflow: hidden;
+}
+
+/* ── Top bar ───────────────────────────────────────────────── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.25rem;
+  height: 56px;
+  background: #0d1117;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  flex-shrink: 0;
+  gap: 1rem;
+}
+
+.deviceInfo {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+
+.infoCol {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 1.1rem;
+  border-right: 1px solid rgba(255,255,255,0.07);
+  min-width: 0;
+}
+.infoCol:first-child { padding-left: 0; }
+.infoCol:last-child  { border-right: none; }
+
+.infoLabel {
+  font-size: 10px;
+  color: #4a5568;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+.infoValue {
+  font-size: 13px;
+  font-weight: 600;
+  color: #c9d1d9;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+/* ── Action buttons ────────────────────────────────────────── */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.statusPill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.statusDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.actionBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  color: #c9d1d9;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.actionBtn:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.2);
+}
+
+.actionBtnAlt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: rgba(0,229,200,0.08);
+  border: 1px solid rgba(0,229,200,0.2);
+  border-radius: 6px;
+  color: #00e5c8;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.actionBtnAlt:hover {
+  background: rgba(0,229,200,0.14);
+}
+
+.actionIcon {
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+/* ── Terminal wrapper ───────────────────────────────────────── */
+.termWrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  padding: 8px 12px;
+  background: #080c10;
+}
+
+.term {
+  width: 100%;
+  height: 100%;
+}
+
+/* xterm.js canvas must fill the container */
+.term :global(.xterm) {
+  height: 100%;
+}
+.term :global(.xterm-viewport) {
+  overflow-y: auto !important;
+}
+
+/* ── Overlays ───────────────────────────────────────────────── */
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(8,12,16,0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  backdrop-filter: blur(2px);
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 2px solid rgba(0,229,200,0.2);
+  border-top-color: #00e5c8;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.overlayText {
+  font-size: 13px;
+  color: #7a8fa8;
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+
+.overlayBottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px;
+  background: rgba(8,12,16,0.9);
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+
+.overlayMsg {
+  font-size: 12px;
+  color: #7a8fa8;
+  font-family: var(--font-mono);
+}
+
+.reconnectBtn {
+  padding: 4px 14px;
+  background: rgba(0,229,200,0.1);
+  border: 1px solid rgba(0,229,200,0.25);
+  border-radius: 5px;
+  color: #00e5c8;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.reconnectBtn:hover { background: rgba(0,229,200,0.18); }
+
+@keyframes spin { to { transform: rotate(360deg); } }

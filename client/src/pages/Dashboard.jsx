@@ -275,6 +275,22 @@ function DeviceCard({ device: d, onDelete, onRefresh }) {
     if (item.danger) {
       if (!confirm(`${item.label} on ${d.hostname || d.name}?`)) return;
     }
+
+    // Open features in new tab
+    if (cat === "Remote Access" && item.label === "Console") {
+      const params = new URLSearchParams({
+        deviceId: d.id,
+        name:     d.name,
+        host:     d.hostname || d.name,
+        user:     d.username || "",
+        os:       d.os || "",
+      });
+      window.open(`/terminal?${params}`, `terminal_${d.id}`);
+      setMenuOpen(false);
+      setActiveCat(null);
+      return;
+    }
+
     console.log(`[cmd] ${cat} › ${item.label} on device ${d.id}`);
     setMenuOpen(false);
     setActiveCat(null);

@@ -301,3 +301,76 @@
 
 /* ── Spin animation ─────────────────────────────────────────── */
 @keyframes spin { to { transform:rotate(360deg); } }
+
+/* ── Metric rows with icons (replaces slide bars) ─────────── */
+.metricIcon  { font-size:13px; flex-shrink:0; }
+.metricBar   { flex:1; height:4px; background:var(--bg-elevated); border-radius:2px; overflow:hidden; }
+.metricFill  { height:100%; border-radius:2px; transition:width 0.6s ease; }
+.metricVal   { font-size:11px; font-family:var(--font-mono); color:var(--text-2); width:44px; text-align:right; flex-shrink:0; }
+
+/* ── Dropdown "soon" badge ────────────────────────────────── */
+.dropItemDim   { opacity:0.5; }
+.dropSoon {
+  margin-left:auto; font-size:9px; font-family:var(--font-mono);
+  color:var(--text-3); background:var(--bg-void);
+  border:1px solid var(--border); border-radius:3px;
+  padding:1px 5px; letter-spacing:0.06em;
+}
+
+/* ── Audit Log ────────────────────────────────────────────── */
+.auditTable {
+  background:var(--bg-card); border:1px solid var(--border);
+  border-radius:var(--r-lg); overflow:hidden; margin-top:0.5rem;
+}
+.auditHead {
+  display:grid; grid-template-columns:200px 1fr 140px;
+  padding:0.6rem 1rem;
+  background:var(--bg-elevated);
+  border-bottom:1px solid var(--border);
+  font-size:10px; font-family:var(--font-mono);
+  color:var(--text-3); letter-spacing:0.1em; text-transform:uppercase;
+}
+.auditRow {
+  display:grid; grid-template-columns:200px 1fr 140px;
+  padding:0.55rem 1rem;
+  border-bottom:1px solid var(--border-dim);
+  font-size:12px; font-family:var(--font-mono);
+  transition:background var(--transition);
+}
+.auditRow:last-child { border-bottom:none; }
+.auditRow:hover { background:rgba(255,255,255,0.03); }
+.auditTime   { color:var(--text-3); font-size:11px; }
+.auditAction { color:var(--text-1); }
+.auditIp     { color:var(--text-3); font-size:11px; }
+.auditEmpty  { padding:2rem; text-align:center; color:var(--text-3); font-size:13px; }
+
+/* ── Settings ─────────────────────────────────────────────── */
+.settingsGrid {
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+  gap:12px; margin-top:0.5rem;
+}
+.settingsCard {
+  background:var(--bg-card); border:1px solid var(--border);
+  border-radius:var(--r-lg); padding:1.25rem;
+}
+.settingsTitle {
+  font-size:11px; font-family:var(--font-mono);
+  color:var(--accent); letter-spacing:0.1em;
+  margin-bottom:0.75rem;
+}
+.settingsRow {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:0.4rem 0; border-bottom:1px solid var(--border-dim);
+  font-size:13px;
+}
+.settingsRow:last-of-type { border-bottom:none; }
+.settingsRow span:first-child { color:var(--text-2); }
+.settingsRow span:last-child  { color:var(--text-1); font-family:var(--font-mono); font-size:12px; }
+.settingsNote {
+  font-size:12px; color:var(--text-3); line-height:1.6;
+  margin-top:0.75rem;
+}
+.settingsNote code {
+  font-family:var(--font-mono); color:var(--accent);
+  background:var(--accent-soft); padding:1px 5px; border-radius:3px;
+}

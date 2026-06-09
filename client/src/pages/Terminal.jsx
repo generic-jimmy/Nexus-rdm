@@ -14,7 +14,10 @@ export default function Terminal() {
   const deviceUser  = params.get("user")  || "";
   const deviceOs    = params.get("os")    || "";
 
-  const { accessToken } = useAuthStore();
+  // Token comes from URL (fresh ws-token fetched before opening tab)
+  const { accessToken: storeToken } = useAuthStore();
+  const urlToken = params.get("token");
+  const activeToken = urlToken || storeToken;
 
   const termRef  = useRef(null);
   const xtermRef = useRef(null);
@@ -28,11 +31,11 @@ export default function Terminal() {
   const buildWsUrl = useCallback(() => {
     const base   = window.location.origin;
     const wsBase = base.replace(/^https/, "wss").replace(/^http/, "ws");
-    return `${wsBase}/ws?token=${encodeURIComponent(accessToken)}&deviceId=${deviceId}`;
-  }, [accessToken, deviceId]);
+    return `${wsBase}/ws?token=${encodeURIComponent(activeToken)}&deviceId=${deviceId}`;
+  }, [activeToken, deviceId]);
 
   useEffect(() => {
-    if (!deviceId || !accessToken || !termRef.current) return;
+    if (!deviceId || !activeToken || !termRef.current) return;
 
     // ── Init xterm ────────────────────────────────────────────
     const term = new XTerm({
@@ -144,7 +147,7 @@ export default function Terminal() {
       ws.close();
       term.dispose();
     };
-  }, [deviceId, accessToken, buildWsUrl]);
+  }, [deviceId, activeToken, buildWsUrl]);
 
   const reconnect    = () => window.location.reload();
   const sendCtrlC    = () => wsRef.current?.readyState === WebSocket.OPEN &&

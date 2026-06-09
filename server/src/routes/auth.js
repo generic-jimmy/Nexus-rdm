@@ -254,4 +254,14 @@ function safe(user) {
   return { ...u, totp_enabled: !!u.totp_enabled };
 }
 
+
+// ─── GET /api/auth/ws-token — short-lived token for WebSocket auth ────────────
+// Access tokens last 15min which is fine, but new tabs don't refresh automatically.
+// This returns a fresh 5-minute token specifically for WS connections.
+router.get("/ws-token", authenticate, (req, res) => {
+  const { signAccess } = require("../utils/auth");
+  const wsToken = signAccess({ sub: req.user.id, role: req.user.role, email: req.user.email, ws: true });
+  res.json({ token: wsToken });
+});
+
 module.exports = router;

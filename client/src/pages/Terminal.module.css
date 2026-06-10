@@ -2,9 +2,11 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
+  width: 100vw;
   background: #080c10;
-  font-family: var(--font-ui);
+  font-family: "Segoe UI", system-ui, sans-serif;
   overflow: hidden;
+  user-select: none;
 }
 
 /* ── Top bar ───────────────────────────────────────────────── */
@@ -13,7 +15,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 1.25rem;
-  height: 56px;
+  height: 54px;
+  min-height: 54px;
   background: #0d1117;
   border-bottom: 1px solid rgba(255,255,255,0.07);
   flex-shrink: 0;
@@ -24,6 +27,7 @@
   display: flex;
   align-items: stretch;
   gap: 0;
+  overflow: hidden;
 }
 
 .infoCol {
@@ -33,6 +37,7 @@
   padding: 0 1.1rem;
   border-right: 1px solid rgba(255,255,255,0.07);
   min-width: 0;
+  flex-shrink: 0;
 }
 .infoCol:first-child { padding-left: 0; }
 .infoCol:last-child  { border-right: none; }
@@ -42,21 +47,21 @@
   color: #4a5568;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  font-family: var(--font-mono);
+  font-family: "Consolas", monospace;
   white-space: nowrap;
 }
 .infoValue {
   font-size: 13px;
   font-weight: 600;
   color: #c9d1d9;
-  font-family: var(--font-mono);
+  font-family: "Consolas", monospace;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 180px;
+  max-width: 220px;
 }
 
-/* ── Action buttons ────────────────────────────────────────── */
+/* ── Actions ────────────────────────────────────────────────── */
 .actions {
   display: flex;
   align-items: center;
@@ -72,15 +77,14 @@
   border-radius: 20px;
   border: 1px solid;
   font-size: 12px;
-  font-weight: 500;
-  font-family: var(--font-mono);
+  font-weight: 600;
+  font-family: "Consolas", monospace;
   letter-spacing: 0.04em;
   white-space: nowrap;
 }
-
 .statusDot {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -89,83 +93,91 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 12px;
+  padding: 5px 14px;
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 6px;
   color: #c9d1d9;
   font-size: 12px;
   font-weight: 500;
-  font-family: var(--font-mono);
+  font-family: "Consolas", monospace;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.15s ease;
+  transition: all 0.15s;
 }
-.actionBtn:hover {
-  background: rgba(255,255,255,0.1);
-  border-color: rgba(255,255,255,0.2);
-}
+.actionBtn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
 
 .actionBtnAlt {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 12px;
+  padding: 5px 14px;
   background: rgba(0,229,200,0.08);
-  border: 1px solid rgba(0,229,200,0.2);
+  border: 1px solid rgba(0,229,200,0.25);
   border-radius: 6px;
   color: #00e5c8;
   font-size: 12px;
   font-weight: 500;
-  font-family: var(--font-mono);
+  font-family: "Consolas", monospace;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.15s ease;
+  transition: all 0.15s;
 }
-.actionBtnAlt:hover {
-  background: rgba(0,229,200,0.14);
-}
-
-.actionIcon {
-  font-size: 13px;
-  opacity: 0.8;
-}
+.actionBtnAlt:hover { background: rgba(0,229,200,0.15); }
 
 /* ── Terminal wrapper ───────────────────────────────────────── */
 .termWrap {
   flex: 1;
   position: relative;
   overflow: hidden;
-  padding: 8px 12px;
   background: #080c10;
+  /* Allow all pointer events to reach xterm's canvas */
+  pointer-events: all;
+  cursor: text;
 }
 
 .term {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  inset: 0;
+  padding: 6px 8px;
+  /* MUST have pointer-events so mouse clicks reach xterm canvas */
+  pointer-events: all;
+  cursor: text;
 }
 
-/* xterm.js canvas must fill the container */
+/* Let xterm own its rendering completely */
 .term :global(.xterm) {
   height: 100%;
+  pointer-events: all;
+}
+.term :global(.xterm-screen) {
+  pointer-events: all;
 }
 .term :global(.xterm-viewport) {
   overflow-y: auto !important;
+  pointer-events: all;
+}
+.term :global(.xterm-helper-textarea) {
+  /* This is the hidden textarea xterm uses to capture keyboard input */
+  /* DO NOT hide it with display:none or visibility:hidden */
+  opacity: 0;
+  position: absolute;
+  pointer-events: none;
 }
 
 /* ── Overlays ───────────────────────────────────────────────── */
 .overlay {
   position: absolute;
   inset: 0;
-  background: rgba(8,12,16,0.85);
+  background: rgba(8,12,16,0.88);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 14px;
-  backdrop-filter: blur(2px);
+  z-index: 10;
+  pointer-events: none;
 }
-
 .spinner {
   width: 28px;
   height: 28px;
@@ -174,11 +186,10 @@
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
-
 .overlayText {
   font-size: 13px;
   color: #7a8fa8;
-  font-family: var(--font-mono);
+  font-family: "Consolas", monospace;
   letter-spacing: 0.04em;
 }
 
@@ -192,16 +203,12 @@
   justify-content: center;
   gap: 12px;
   padding: 10px;
-  background: rgba(8,12,16,0.9);
+  background: rgba(8,12,16,0.92);
   border-top: 1px solid rgba(255,255,255,0.07);
+  z-index: 10;
+  pointer-events: all;
 }
-
-.overlayMsg {
-  font-size: 12px;
-  color: #7a8fa8;
-  font-family: var(--font-mono);
-}
-
+.overlayMsg { font-size: 12px; color: #7a8fa8; font-family: "Consolas", monospace; }
 .reconnectBtn {
   padding: 4px 14px;
   background: rgba(0,229,200,0.1);
@@ -209,7 +216,7 @@
   border-radius: 5px;
   color: #00e5c8;
   font-size: 12px;
-  font-family: var(--font-mono);
+  font-family: "Consolas", monospace;
   cursor: pointer;
   transition: all 0.15s;
 }
